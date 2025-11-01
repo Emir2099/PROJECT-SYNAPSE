@@ -386,7 +386,7 @@ function renderProjectDashboard() {
         ${escapeHtml(project.description || '')}
       </p>
       
-      <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 2rem;">
+      <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 2rem; margin-bottom: 3rem;">
         <div class="card">
           <h3 class="text-2xl font-bold mb-4">Local Status</h3>
           <div class="space-y-3">
