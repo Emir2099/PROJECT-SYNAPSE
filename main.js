@@ -23,9 +23,10 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     },
-    frame: true,
+    frame: false,
     title: 'Project Synapse',
-    icon: path.join(__dirname, 'assets', 'icon.png')
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    titleBarStyle: 'hidden'
   });
 
   mainWindow.loadFile('renderer.html');
@@ -50,6 +51,30 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// ===== WINDOW CONTROLS =====
+
+ipcMain.handle('window-minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.handle('window-close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow ? mainWindow.isMaximized() : false;
 });
 
 // ===== DATA MANAGEMENT =====

@@ -40,7 +40,47 @@ const escapeHtml = (text) => {
 async function init() {
   await loadProjects();
   await loadSettings();
+  setupTitlebar();
   render();
+}
+
+// Setup custom titlebar
+function setupTitlebar() {
+  const titlebar = document.createElement('div');
+  titlebar.className = 'titlebar';
+  titlebar.innerHTML = `
+    <div class="titlebar-title">
+      ${createIcon('layers', 'lucide-sm')}
+      <span>Project Synapse</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-button" onclick="minimizeWindow()" title="Minimize">
+        ${createIcon('minus')}
+      </button>
+      <button class="titlebar-button" onclick="maximizeWindow()" title="Maximize">
+        ${createIcon('maximize')}
+      </button>
+      <button class="titlebar-button close" onclick="closeWindow()" title="Close">
+        ${createIcon('x')}
+      </button>
+    </div>
+  `;
+  
+  const root = document.getElementById('root');
+  root.parentElement.insertBefore(titlebar, root);
+}
+
+// Window control functions
+async function minimizeWindow() {
+  await window.electronAPI.windowMinimize();
+}
+
+async function maximizeWindow() {
+  await window.electronAPI.windowMaximize();
+}
+
+async function closeWindow() {
+  await window.electronAPI.windowClose();
 }
 
 // Load projects from electron store
@@ -116,10 +156,12 @@ function render() {
 function renderApp(content) {
   return `
     <div class="app-container">
-      ${renderSidebar()}
-      <main class="main-content">
-        ${content}
-      </main>
+      <div class="content-wrapper">
+        ${renderSidebar()}
+        <main class="main-content">
+          ${content}
+        </main>
+      </div>
     </div>
   `;
 }
@@ -131,14 +173,14 @@ function renderSidebar() {
   return `
     <nav class="sidebar">
       <div class="p-2 mb-4">
-        <div style="width: 28px; height: 28px; background: white; border-radius: 4px;"></div>
+        ${createIcon('layers', 'lucide-xl')}
       </div>
       <button class="sidebar-icon ${isProjectsActive ? 'active' : ''}" onclick="navigateTo('grid')">
-        <span style="font-size: 24px;">📊</span>
+        ${createIcon('grid-3x3', 'lucide-lg')}
         <span class="sidebar-icon-text">Projects</span>
       </button>
       <button class="sidebar-icon ${isSettingsActive ? 'active' : ''}" onclick="navigateTo('settings')">
-        <span style="font-size: 24px;">⚙️</span>
+        ${createIcon('settings', 'lucide-lg')}
         <span class="sidebar-icon-text">Settings</span>
       </button>
     </nav>
@@ -154,7 +196,7 @@ function renderProjectGrid() {
       <div class="flex justify-between items-center mb-10">
         <h1 class="text-4xl font-bold">Project Synapse</h1>
         <button class="btn btn-primary" onclick="navigateTo('add-project')">
-          <span>+</span> Add Project
+          ${createIcon('plus', 'lucide-sm')} Add Project
         </button>
       </div>
       
@@ -167,7 +209,9 @@ function renderProjectGrid() {
           value="${escapeHtml(state.searchTerm)}"
           oninput="handleSearch(this.value)"
         />
-        <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-size: 20px;">🔍</span>
+        <div style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--syn-gray);">
+          ${createIcon('search')}
+        </div>
       </div>
 
       ${allTags.length > 0 ? `
@@ -187,10 +231,10 @@ function renderProjectGrid() {
             `).join('')}
             ${state.activeTags.size > 0 ? `
               <button
-                style="padding: 0.25rem 0.75rem; font-size: 0.875rem; color: var(--syn-gray); background: none; border: none; cursor: pointer;"
+                style="padding: 0.25rem 0.75rem; font-size: 0.875rem; color: var(--syn-gray); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 0.25rem;"
                 onclick="clearTags()"
               >
-                ❌ Clear
+                ${createIcon('x', 'lucide-sm')} Clear
               </button>
             ` : ''}
           </div>
@@ -199,7 +243,9 @@ function renderProjectGrid() {
 
       ${filteredProjects.length === 0 ? `
         <div class="text-center text-gray mt-4">
-          <p style="font-size: 1.5rem; margin-bottom: 1rem;">📭</p>
+          <div style="margin-bottom: 1rem; display: flex; justify-content: center; color: var(--syn-gray);">
+            ${createIcon('search', 'lucide-xl')}
+          </div>
           <p>No projects found. ${state.projects.length === 0 ? 'Add your first project to get started!' : 'Try adjusting your filters.'}</p>
         </div>
       ` : `
@@ -241,7 +287,7 @@ function renderProjectDashboard() {
   return `
     <div class="p-10" style="max-width: 1200px; margin: 0 auto;">
       <button class="btn btn-secondary mb-6" onclick="navigateTo('grid')">
-        <span>←</span> Back to projects
+        ${createIcon('arrow-left', 'lucide-sm')} Back to projects
       </button>
       
       <div class="flex justify-between items-start mb-8">
@@ -253,10 +299,10 @@ function renderProjectDashboard() {
         </div>
         <div class="flex gap-2">
           <button class="btn btn-secondary" onclick="editProject('${project.id}')">
-            <span>✏️</span>
+            ${createIcon('edit')}
           </button>
           <button class="btn btn-secondary" onclick="deleteProject('${project.id}')">
-            <span>🗑️</span>
+            ${createIcon('trash')}
           </button>
         </div>
       </div>
@@ -264,22 +310,22 @@ function renderProjectDashboard() {
       <div class="flex flex-wrap gap-4 mb-8">
         ${project.executablePath ? `
           <button class="btn btn-primary" onclick="runCommand('${escapeHtml(project.executablePath)}')">
-            <span>▶️</span> Run Project
+            ${createIcon('play', 'lucide-sm')} Run Project
           </button>
         ` : ''}
         ${project.localPath ? `
           <button class="btn btn-secondary" onclick="openFolder('${escapeHtml(project.localPath)}')">
-            <span>📁</span> Open Folder
+            ${createIcon('folder', 'lucide-sm')} Open Folder
           </button>
         ` : ''}
         ${project.githubRepo ? `
           <button class="btn btn-secondary" onclick="openExternalLink('${escapeHtml(project.githubRepo)}')">
-            <span>🐙</span> View on GitHub
+            ${createIcon('github', 'lucide-sm')} View on GitHub
           </button>
         ` : ''}
         ${project.localPath ? `
           <button class="btn btn-secondary" onclick="runCommand('code &quot;${escapeHtml(project.localPath)}&quot;')">
-            <span>💻</span> VS Code
+            ${createIcon('code', 'lucide-sm')} VS Code
           </button>
         ` : ''}
       </div>
@@ -318,8 +364,8 @@ function renderProjectDashboard() {
             <h3 class="text-2xl font-bold mb-4">GitHub Repo</h3>
             <div class="space-y-3">
               <p class="text-gray">
-                <a onclick="openExternalLink('${escapeHtml(project.githubRepo)}')" class="text-white cursor-pointer" style="text-decoration: underline;">
-                  ${escapeHtml(project.githubRepo.replace('https://github.com/', ''))} 🔗
+                <a onclick="openExternalLink('${escapeHtml(project.githubRepo)}')" class="text-white cursor-pointer" style="text-decoration: underline; display: inline-flex; align-items: center; gap: 0.5rem;">
+                  ${escapeHtml(project.githubRepo.replace('https://github.com/', ''))} ${createIcon('external-link', 'lucide-sm')}
                 </a>
               </p>
               ${githubInfo ? `
@@ -333,13 +379,13 @@ function renderProjectDashboard() {
                   <div>
                     <h4 class="font-bold text-white mb-1" style="font-size: 0.875rem;">Latest Release:</h4>
                     <a onclick="openExternalLink('${escapeHtml(githubInfo.releases[0].downloadUrl)}')" class="text-gray cursor-pointer flex items-center gap-2" style="text-decoration: underline;">
-                      <span>⬇️</span> ${escapeHtml(githubInfo.releases[0].name)} (${escapeHtml(githubInfo.releases[0].tag)})
+                      ${createIcon('download', 'lucide-sm')} ${escapeHtml(githubInfo.releases[0].name)} (${escapeHtml(githubInfo.releases[0].tag)})
                     </a>
                   </div>
                 ` : ''}
               ` : `
                 <button class="btn btn-secondary" onclick="fetchGitHubInfo('${project.id}', '${escapeHtml(project.githubRepo)}')">
-                  🔄 Fetch GitHub Info
+                  ${createIcon('refresh-cw', 'lucide-sm')} Fetch GitHub Info
                 </button>
               `}
             </div>
@@ -391,10 +437,10 @@ function renderSettings() {
           <p class="text-gray mb-4">Your project database is stored locally. You can export or import it here.</p>
           <div class="flex gap-4">
             <button class="btn btn-secondary" style="flex: 1;" onclick="exportData()">
-              <span>📤</span> Export Data
+              ${createIcon('download', 'lucide-sm')} Export Data
             </button>
             <button class="btn btn-secondary" style="flex: 1;" onclick="importData()">
-              <span>📥</span> Import Data
+              ${createIcon('upload', 'lucide-sm')} Import Data
             </button>
           </div>
         </div>
@@ -417,7 +463,7 @@ function renderProjectForm(project) {
   return `
     <div class="p-10" style="max-width: 800px; margin: 0 auto;">
       <button class="btn btn-secondary mb-6" onclick="navigateTo(${isEdit ? "'project'" : "'grid'"})">
-        <span>←</span> Back
+        ${createIcon('arrow-left', 'lucide-sm')} Back
       </button>
       
       <h1 class="text-4xl font-bold mb-10">${isEdit ? 'Edit' : 'Add'} Project</h1>
@@ -435,12 +481,12 @@ function renderProjectForm(project) {
           <textarea name="description" class="input">${escapeHtml(project?.description || '')}</textarea>
         </div>
         
-        <div class="form-group">
+          <div class="form-group">
           <label class="form-label">Local Folder Path</label>
           <div class="flex gap-2">
             <input type="text" name="localPath" class="input" value="${escapeHtml(project?.localPath || '')}">
             <button type="button" class="btn btn-secondary" onclick="selectFolder('localPath')">
-              📁 Browse
+              ${createIcon('folder', 'lucide-sm')} Browse
             </button>
           </div>
         </div>
@@ -450,12 +496,10 @@ function renderProjectForm(project) {
           <div class="flex gap-2">
             <input type="text" name="executablePath" class="input" value="${escapeHtml(project?.executablePath || '')}">
             <button type="button" class="btn btn-secondary" onclick="selectFile('executablePath')">
-              📄 Browse
+              ${createIcon('file', 'lucide-sm')} Browse
             </button>
           </div>
-        </div>
-        
-        <div class="form-group">
+        </div>        <div class="form-group">
           <label class="form-label">GitHub Repository URL</label>
           <input type="url" name="githubRepo" class="input" placeholder="https://github.com/username/repo" value="${escapeHtml(project?.githubRepo || '')}">
         </div>
@@ -481,10 +525,10 @@ function renderProjectForm(project) {
         
         <div class="flex gap-4">
           <button type="submit" class="btn btn-primary" style="flex: 1;">
-            <span>💾</span> ${isEdit ? 'Update' : 'Create'} Project
+            ${createIcon('save', 'lucide-sm')} ${isEdit ? 'Update' : 'Create'} Project
           </button>
           <button type="button" class="btn btn-secondary" onclick="navigateTo(${isEdit ? "'project'" : "'grid'"})">
-            Cancel
+            ${createIcon('x', 'lucide-sm')} Cancel
           </button>
         </div>
       </form>

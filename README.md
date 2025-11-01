@@ -32,6 +32,8 @@ A modern desktop application for managing and organizing your development projec
 
 🎨 **Clean UI**
 - Minimalist black & white design
+- Custom frameless window with native controls
+- Lucide icon system for crisp, scalable icons
 - JetBrains Mono font
 - Smooth transitions and interactions
 
@@ -199,8 +201,10 @@ Project data is stored locally using `electron-store`.
 ### Technologies Used
 - **Electron**: Desktop application framework
 - **Vanilla JavaScript**: No framework overhead, pure JS
+- **Lucide Icons**: Crisp, scalable SVG icon system
 - **electron-store**: Persistent data storage
 - **GitHub API**: Repository information
+- **Custom Window Frame**: Frameless window with native controls
 
 ### Contributing
 1. Fork the repository
