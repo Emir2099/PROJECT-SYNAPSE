@@ -13,6 +13,11 @@ const store = new Store();
 autoUpdater.autoDownload = false; // Manual download for user control
 autoUpdater.autoInstallOnAppQuit = true;
 
+console.log('=== AUTO-UPDATER INITIALIZED ===');
+console.log('App version:', app.getVersion());
+console.log('Platform:', process.platform);
+console.log('Arch:', process.arch);
+
 let mainWindow;
 
 function createWindow() {
@@ -107,6 +112,7 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('Update available:', info.version);
+  console.log('Update info:', JSON.stringify(info, null, 2));
   if (mainWindow) {
     mainWindow.webContents.send('update-available', {
       version: info.version,
@@ -128,6 +134,7 @@ autoUpdater.on('error', (err) => {
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
+  console.log('Download progress:', progressObj.percent.toFixed(2) + '%');
   if (mainWindow) {
     mainWindow.webContents.send('update-download-progress', {
       percent: progressObj.percent,
@@ -160,10 +167,25 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('download-update', async () => {
   try {
-    await autoUpdater.downloadUpdate();
+    console.log('=== DOWNLOAD UPDATE REQUESTED ===');
+    console.log('Starting update download...');
+    
+    // Add a small delay to ensure the download event handlers are ready
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const downloadPromise = autoUpdater.downloadUpdate();
+    console.log('Download promise created');
+    
+    const result = await downloadPromise;
+    console.log('Download completed:', result);
     return { success: true };
   } catch (error) {
-    console.error('Error downloading update:', error);
+    console.error('=== DOWNLOAD ERROR ===');
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', 'Download failed: ' + error.message);
+    }
     return { success: false, error: error.message };
   }
 });

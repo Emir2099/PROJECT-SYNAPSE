@@ -500,6 +500,17 @@ function renderSettings() {
         </div>
         
         <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Updates</h3>
+          <p class="text-gray mb-4">Current version: ${state.currentVersion || 'Unknown'}</p>
+          <button class="btn btn-primary" onclick="manualCheckForUpdates()">
+            ${createIcon('refresh-cw', 'lucide-sm')} Check for Updates Now
+          </button>
+          <p class="text-gray" style="font-size: 0.75rem; margin-top: 0.5rem;">
+            The app checks automatically on startup. Use this if you want to check manually.
+          </p>
+        </div>
+        
+        <div class="card">
           <h3 class="text-2xl font-bold mb-4">Data Management</h3>
           <p class="text-gray mb-4">Your project database is stored locally. You can export or import it here.</p>
           <div class="flex gap-4">
@@ -829,6 +840,34 @@ async function importData() {
   }
 }
 
+async function manualCheckForUpdates() {
+  const notification = document.createElement('div');
+  notification.className = 'update-notification';
+  notification.id = 'checking-updates';
+  notification.innerHTML = `
+    <h3>Checking for Updates...</h3>
+    <p class="text-gray">Please wait...</p>
+  `;
+  document.body.appendChild(notification);
+  
+  try {
+    const result = await window.electronAPI.checkForUpdates();
+    const existing = document.getElementById('checking-updates');
+    if (existing) existing.remove();
+    
+    if (result.success) {
+      // Update available notification will be shown by the event listener
+      console.log('Update check completed:', result.updateInfo);
+    } else {
+      alert('No updates available. You are on the latest version!');
+    }
+  } catch (error) {
+    const existing = document.getElementById('checking-updates');
+    if (existing) existing.remove();
+    alert('Error checking for updates: ' + error.message);
+  }
+}
+
 function attachEventListeners() {
   // Event listeners are attached via onclick attributes in the HTML
   // This function is for any additional listeners if needed
@@ -903,21 +942,86 @@ async function downloadUpdate() {
     <div class="progress-bar">
       <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
     </div>
-    <p id="progress-text" class="text-gray" style="font-size: 0.75rem;">0%</p>
+    <p id="progress-text" class="text-gray" style="font-size: 0.75rem;">0% - Initializing download...</p>
+    <div id="download-actions" style="margin-top: 1rem; display: none;">
+      <button class="btn btn-secondary" onclick="retryDownload()" style="font-size: 0.875rem;">
+        ${createIcon('refresh-cw', 'lucide-sm')} Retry Download
+      </button>
+      <button class="btn btn-secondary" onclick="dismissUpdate()" style="font-size: 0.875rem; margin-left: 0.5rem;">
+        Cancel
+      </button>
+    </div>
   `;
   document.body.appendChild(notification);
   
-  await window.electronAPI.downloadUpdate();
+  // Monitor for stuck downloads
+  let lastProgressTime = Date.now();
+  let hasReceivedProgress = false;
+  
+  window._updateProgressTimestamp = () => { 
+    lastProgressTime = Date.now();
+    hasReceivedProgress = true;
+  };
+  
+  const progressCheckInterval = setInterval(() => {
+    const timeSinceLastProgress = Date.now() - lastProgressTime;
+    const progressText = document.getElementById('progress-text');
+    const actionsDiv = document.getElementById('download-actions');
+    
+    if (timeSinceLastProgress > 30000 && !hasReceivedProgress) {
+      clearInterval(progressCheckInterval);
+      if (progressText) {
+        progressText.textContent = '⚠️ Download appears stuck. This might mean:\n• No v2.3.0 release on GitHub yet\n• Network/firewall blocking connection\n• GitHub API rate limit';
+        progressText.style.color = '#ff9800';
+        progressText.style.whiteSpace = 'pre-line';
+      }
+      if (actionsDiv) {
+        actionsDiv.style.display = 'flex';
+        actionsDiv.style.gap = '0.5rem';
+      }
+    }
+  }, 5000);
+  
+  try {
+    const result = await window.electronAPI.downloadUpdate();
+    if (!result.success && result.error) {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    clearInterval(progressCheckInterval);
+    const progressText = document.getElementById('progress-text');
+    const actionsDiv = document.getElementById('download-actions');
+    if (progressText) {
+      progressText.textContent = '❌ Download error: ' + error.message;
+      progressText.style.color = '#f44336';
+    }
+    if (actionsDiv) {
+      actionsDiv.style.display = 'flex';
+      actionsDiv.style.gap = '0.5rem';
+    }
+  }
+}
+
+function retryDownload() {
+  const existing = document.getElementById('download-progress');
+  if (existing) existing.remove();
+  downloadUpdate();
 }
 
 function updateDownloadProgress(data) {
   const progressFill = document.getElementById('progress-fill');
   const progressText = document.getElementById('progress-text');
   
+  // Update timestamp for stuck detection
+  if (window._updateProgressTimestamp) {
+    window._updateProgressTimestamp();
+  }
+  
   if (progressFill && progressText) {
     const percent = Math.round(data.percent);
     progressFill.style.width = percent + '%';
     progressText.textContent = `${percent}% - ${formatBytes(data.transferred)} / ${formatBytes(data.total)}`;
+    progressText.style.color = 'var(--syn-gray)'; // Reset color on progress
   }
 }
 

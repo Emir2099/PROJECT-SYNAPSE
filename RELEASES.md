@@ -4,6 +4,40 @@ User-facing changelog for Project Synapse.
 
 ---
 
+## Version 2.3.1 - November 1, 2025
+
+### 🔧 Bug Fix Release
+
+**Fixed Update Download Issues**
+The download getting stuck at 0% is now fixed! This update includes better error handling, timeout detection, and a manual retry system.
+
+### What's Fixed:
+- ✅ Downloads no longer hang at 0% (fixed race condition)
+- ✅ Automatic detection if download gets stuck (30-second timeout)
+- ✅ Retry button appears if something goes wrong
+- ✅ Better error messages explaining what happened
+- ✅ Enhanced logging to help diagnose issues
+
+### New Features:
+- 🔄 **Manual Update Check** - New button in Settings lets you check for updates anytime
+- 📊 **Version Display** - Settings now shows your current version
+- 🔍 **Better Diagnostics** - Detailed console logs help troubleshoot problems
+
+### 💡 Why This Update Matters:
+This fixes the auto-update system so it works reliably. After installing v2.3.1, all future updates will download and install smoothly via delta updates (only downloading the changes, not the full app).
+
+### 📥 How to Get It:
+- **From v2.3.1**: The app should detect this update automatically. Click Download when notified.
+- **From older versions**: Download and install v2.3.1 manually from GitHub Releases. This is a one-time manual install - future updates will be automatic!
+
+### 🧪 Testing the Fix:
+1. Install v2.3.1
+2. Go to Settings → Updates
+3. Click "Check for Updates Now" to test the system
+4. Future releases will download smoothly
+
+---
+
 ## Version 2.3.0 - November 1, 2025
 
 ### 🐙 What's New
