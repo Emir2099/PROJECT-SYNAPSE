@@ -8,7 +8,12 @@ let state = {
   searchTerm: '',
   activeTags: new Set(),
   settings: {},
-  githubCache: {}
+  githubCache: {},
+  updateAvailable: false,
+  updateInfo: null,
+  downloadProgress: 0,
+  releases: null,
+  currentVersion: null
 };
 
 // Utility functions
@@ -40,7 +45,9 @@ const escapeHtml = (text) => {
 async function init() {
   await loadProjects();
   await loadSettings();
+  await loadCurrentVersion();
   setupTitlebar();
+  setupUpdateListeners();
   render();
 }
 
@@ -182,6 +189,12 @@ function renderSidebar() {
       <button class="sidebar-icon ${isSettingsActive ? 'active' : ''}" onclick="navigateTo('settings')">
         ${createIcon('settings', 'lucide-lg')}
         <span class="sidebar-icon-text">Settings</span>
+      </button>
+      <div style="flex: 1;"></div>
+      <button class="sidebar-icon" onclick="viewChangelog()" style="position: relative;" title="Release Notes">
+        ${createIcon('file', 'lucide-lg')}
+        <span class="sidebar-icon-text">Updates</span>
+        ${state.updateAvailable ? '<span class="update-badge" style="top: 4px; right: 4px;">NEW</span>' : ''}
       </button>
     </nav>
   `;
@@ -705,6 +718,255 @@ async function importData() {
 function attachEventListeners() {
   // Event listeners are attached via onclick attributes in the HTML
   // This function is for any additional listeners if needed
+}
+
+// ===== AUTO-UPDATE SYSTEM =====
+
+async function loadCurrentVersion() {
+  const version = await window.electronAPI.getCurrentVersion();
+  state.currentVersion = version;
+}
+
+function setupUpdateListeners() {
+  // Listen for update available
+  window.electronAPI.onUpdateAvailable((data) => {
+    state.updateAvailable = true;
+    state.updateInfo = data;
+    showUpdateNotification(data);
+  });
+  
+  // Listen for download progress
+  window.electronAPI.onUpdateDownloadProgress((data) => {
+    state.downloadProgress = data.percent;
+    updateDownloadProgress(data);
+  });
+  
+  // Listen for update downloaded
+  window.electronAPI.onUpdateDownloaded((data) => {
+    showInstallNotification(data);
+  });
+  
+  // Listen for errors
+  window.electronAPI.onUpdateError((error) => {
+    console.error('Update error:', error);
+  });
+}
+
+function showUpdateNotification(data) {
+  const notification = document.createElement('div');
+  notification.className = 'update-notification';
+  notification.id = 'update-notification';
+  notification.innerHTML = `
+    <h3>🎉 Update Available!</h3>
+    <p>Version ${data.version} is ready to download</p>
+    <div class="update-actions">
+      <button class="btn btn-primary" onclick="downloadUpdate()">
+        ${createIcon('download', 'lucide-sm')} Download
+      </button>
+      <button class="btn btn-secondary" onclick="viewChangelog()">
+        ${createIcon('file', 'lucide-sm')} What's New
+      </button>
+      <button class="btn btn-secondary" onclick="dismissUpdate()">
+        Later
+      </button>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  // Update sidebar badge
+  updateSidebarBadge();
+}
+
+async function downloadUpdate() {
+  dismissUpdate();
+  
+  const notification = document.createElement('div');
+  notification.className = 'update-notification';
+  notification.id = 'download-progress';
+  notification.innerHTML = `
+    <h3>Downloading Update...</h3>
+    <p>This won't take long</p>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    </div>
+    <p id="progress-text" class="text-gray" style="font-size: 0.75rem;">0%</p>
+  `;
+  document.body.appendChild(notification);
+  
+  await window.electronAPI.downloadUpdate();
+}
+
+function updateDownloadProgress(data) {
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  
+  if (progressFill && progressText) {
+    const percent = Math.round(data.percent);
+    progressFill.style.width = percent + '%';
+    progressText.textContent = `${percent}% - ${formatBytes(data.transferred)} / ${formatBytes(data.total)}`;
+  }
+}
+
+function showInstallNotification(data) {
+  const existing = document.getElementById('download-progress');
+  if (existing) existing.remove();
+  
+  const notification = document.createElement('div');
+  notification.className = 'update-notification';
+  notification.id = 'install-notification';
+  notification.innerHTML = `
+    <h3>✅ Update Downloaded!</h3>
+    <p>Version ${data.version} is ready to install</p>
+    <div class="update-actions">
+      <button class="btn btn-primary" onclick="installUpdate()">
+        ${createIcon('refresh-cw', 'lucide-sm')} Restart & Install
+      </button>
+      <button class="btn btn-secondary" onclick="dismissUpdate()">
+        Later
+      </button>
+    </div>
+  `;
+  document.body.appendChild(notification);
+}
+
+function installUpdate() {
+  window.electronAPI.installUpdate();
+}
+
+function dismissUpdate() {
+  const notifications = [
+    document.getElementById('update-notification'),
+    document.getElementById('download-progress'),
+    document.getElementById('install-notification')
+  ];
+  notifications.forEach(n => n && n.remove());
+}
+
+function updateSidebarBadge() {
+  // This will be rendered in the sidebar if update is available
+  render();
+}
+
+async function viewChangelog() {
+  if (!state.releases) {
+    const result = await window.electronAPI.getReleases();
+    if (result.success) {
+      state.releases = parseReleases(result.content);
+    }
+  }
+  
+  showChangelogModal();
+}
+
+function parseReleases(markdown) {
+  const releases = [];
+  const lines = markdown.split('\n');
+  let currentRelease = null;
+  let currentSection = null;
+  
+  for (let line of lines) {
+    // Version header: ## Version 2.1.0 - November 1, 2025
+    if (line.startsWith('## Version ')) {
+      if (currentRelease) releases.push(currentRelease);
+      const match = line.match(/## Version ([\d.]+) - (.+)/);
+      if (match) {
+        currentRelease = {
+          version: match[1],
+          date: match[2],
+          sections: []
+        };
+        currentSection = null;
+      }
+    }
+    // Section header: ### ✨ What's New
+    else if (line.startsWith('### ') && currentRelease) {
+      const title = line.replace('### ', '').trim();
+      currentSection = { title, items: [] };
+      currentRelease.sections.push(currentSection);
+    }
+    // Section items
+    else if (line.startsWith('**') && currentSection) {
+      const text = line.replace(/\*\*/g, '').trim();
+      if (text) currentSection.items.push({ type: 'bold', text });
+    }
+    else if (line.startsWith('- ') && currentSection) {
+      const text = line.replace('- ', '').trim();
+      if (text) currentSection.items.push({ type: 'list', text });
+    }
+    else if (line.trim() && !line.startsWith('#') && !line.startsWith('---') && currentSection && line.length > 10) {
+      currentSection.items.push({ type: 'text', text: line.trim() });
+    }
+  }
+  
+  if (currentRelease) releases.push(currentRelease);
+  return releases;
+}
+
+function showChangelogModal() {
+  const modal = document.createElement('div');
+  modal.className = 'changelog-modal';
+  modal.onclick = (e) => {
+    if (e.target === modal) hideChangelogModal();
+  };
+  
+  modal.innerHTML = `
+    <div class="changelog-content" onclick="event.stopPropagation()">
+      <div class="changelog-header">
+        <h2>Release Notes</h2>
+        <button class="changelog-close" onclick="hideChangelogModal()">
+          ${createIcon('x', 'lucide-lg')}
+        </button>
+      </div>
+      <div class="changelog-body">
+        ${renderReleases()}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+function hideChangelogModal() {
+  const modal = document.querySelector('.changelog-modal');
+  if (modal) modal.remove();
+}
+
+function renderReleases() {
+  if (!state.releases || state.releases.length === 0) {
+    return '<p class="text-gray">No release notes available.</p>';
+  }
+  
+  return state.releases.map(release => `
+    <div class="release-version">
+      <div class="release-header">
+        <span class="version-tag">v${release.version}</span>
+        <span class="version-date">${release.date}</span>
+        ${release.version === state.currentVersion ? '<span class="tag" style="background: var(--syn-white); color: var(--syn-black);">Current</span>' : ''}
+      </div>
+      ${release.sections.map(section => `
+        <div class="release-section">
+          <h4>${section.title}</h4>
+          ${section.items.map(item => {
+            if (item.type === 'bold') {
+              return `<p style="color: var(--syn-white); font-weight: 600; margin: 0.75rem 0;">${item.text}</p>`;
+            } else if (item.type === 'list') {
+              return `<ul><li>${item.text}</li></ul>`;
+            } else {
+              return `<p style="color: var(--syn-gray); margin: 0.5rem 0;">${item.text}</p>`;
+            }
+          }).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
 // Start the app

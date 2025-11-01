@@ -4,9 +4,14 @@ const fs = require('fs').promises;
 const { exec } = require('child_process');
 const util = require('util');
 const Store = require('electron-store');
+const { autoUpdater } = require('electron-updater');
 
 const execPromise = util.promisify(exec);
 const store = new Store();
+
+// Configure auto-updater
+autoUpdater.autoDownload = false; // Manual download for user control
+autoUpdater.autoInstallOnAppQuit = true;
 
 let mainWindow;
 
@@ -43,6 +48,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  
+  // Check for updates after window is ready
+  setTimeout(() => {
+    checkForUpdates();
+  }, 3000); // Wait 3 seconds after launch
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -75,6 +85,106 @@ ipcMain.handle('window-close', () => {
 
 ipcMain.handle('window-is-maximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// ===== AUTO-UPDATE SYSTEM =====
+
+function checkForUpdates() {
+  if (process.env.NODE_ENV === 'development' || process.argv.includes('--dev')) {
+    console.log('Skipping update check in development mode');
+    return;
+  }
+  
+  autoUpdater.checkForUpdates().catch(err => {
+    console.error('Error checking for updates:', err);
+  });
+}
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for updates...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('No updates available');
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Auto-updater error:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-error', err.message);
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-download-progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total,
+      bytesPerSecond: progressObj.bytesPerSecond
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', {
+      version: info.version
+    });
+  }
+});
+
+// IPC handlers for update actions
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result.updateInfo };
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    console.error('Error downloading update:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.handle('get-current-version', () => {
+  return app.getVersion();
+});
+
+ipcMain.handle('get-releases', async () => {
+  try {
+    const releasesPath = path.join(__dirname, 'RELEASES.md');
+    const content = await fs.readFile(releasesPath, 'utf8');
+    return { success: true, content };
+  } catch (error) {
+    console.error('Error reading releases:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // ===== DATA MANAGEMENT =====

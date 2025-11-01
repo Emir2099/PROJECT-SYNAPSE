@@ -1,6 +1,6 @@
 {
   "name": "project-synapse",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A desktop project management application",
   "main": "main.js",
   "scripts": {
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.6.2",
     "lucide-static": "^0.552.0"
   },
   "build": {
@@ -38,11 +39,24 @@
       "preload.js",
       "renderer.html",
       "renderer.js",
+      "RELEASES.md",
       "node_modules/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "Emir2099",
+      "repo": "PROJECT-SYNAPSE"
+    },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "publisherName": "Project Synapse"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "mac": {
       "target": "dmg",
