@@ -175,6 +175,9 @@ function render() {
     case 'settings':
       root.innerHTML = renderApp(renderSettings());
       break;
+    case 'help':
+      root.innerHTML = renderApp(renderHelp());
+      break;
     case 'add-project':
       root.innerHTML = renderApp(renderAddProject());
       break;
@@ -205,6 +208,7 @@ function renderApp(content) {
 function renderSidebar() {
   const isProjectsActive = state.currentView === 'grid' || state.currentView === 'project';
   const isSettingsActive = state.currentView === 'settings';
+  const isHelpActive = state.currentView === 'help';
   
   return `
     <nav class="sidebar">
@@ -214,6 +218,10 @@ function renderSidebar() {
       <button class="sidebar-icon ${isProjectsActive ? 'active' : ''}" onclick="navigateTo('grid')">
         ${createIcon('grid-3x3', 'lucide-lg')}
         <span class="sidebar-icon-text">Projects</span>
+      </button>
+      <button class="sidebar-icon ${isHelpActive ? 'active' : ''}" onclick="navigateTo('help')">
+        ${createIcon('help-circle', 'lucide-lg')}
+        <span class="sidebar-icon-text">Help</span>
       </button>
       <button class="sidebar-icon ${isSettingsActive ? 'active' : ''}" onclick="navigateTo('settings')">
         ${createIcon('settings', 'lucide-lg')}
@@ -510,7 +518,7 @@ function renderSettings() {
           </p>
         </div>
         
-        <div class="card">
+        <div class="card style="margin-bottom: 4rem;">
           <h3 class="text-2xl font-bold mb-4">Data Management</h3>
           <p class="text-gray mb-4">Your project database is stored locally. You can export or import it here.</p>
           <div class="flex gap-4">
@@ -522,6 +530,253 @@ function renderSettings() {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHelp() {
+  return `
+    <div class="p-10" style="max-width: 1000px; margin: 0 auto;">
+      <h1 class="text-4xl font-bold mb-10">Help & User Guide</h1>
+      
+      <div class="help-section">
+        <h2 class="help-title">📦 Adding a New Project</h2>
+        <div class="help-content">
+          <p class="help-intro">Create a new project to track your work.</p>
+          <ol class="help-steps">
+            <li>Click the <strong>+ Add Project</strong> button on the Projects grid</li>
+            <li>Fill in the project details:
+              <ul>
+                <li><strong>Project Name</strong> (required) - Give your project a descriptive name</li>
+                <li><strong>Project Image</strong> (optional) - Paste an image URL or click "Choose File" to select an image from your computer</li>
+                <li><strong>Description</strong> (optional) - Describe what your project is about</li>
+                <li><strong>Local Folder Path</strong> (optional) - Click "Browse" to select your project's folder on your computer</li>
+                <li><strong>Executable Path / Command</strong> (optional) - Click "Browse" to select an .exe file, or type a command like <code>npm start</code></li>
+                <li><strong>GitHub Repository URL</strong> (optional) - Paste your GitHub repo URL (e.g., https://github.com/username/repo)</li>
+                <li><strong>Tags</strong> (optional) - Add comma-separated tags like: python, ai, research</li>
+                <li><strong>Status</strong> - Choose Active, Completed, or Archived</li>
+                <li><strong>Publications</strong> (optional) - List any papers or publications related to this project</li>
+                <li><strong>Notes</strong> (optional) - Add any notes or documentation</li>
+              </ul>
+            </li>
+            <li>Click <strong>Create Project</strong> to save</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">✏️ Editing a Project</h2>
+        <div class="help-content">
+          <p class="help-intro">Update project information at any time.</p>
+          <ol class="help-steps">
+            <li>Click on a project card to view its details</li>
+            <li>Click the <strong>Edit Project</strong> button in the Actions card</li>
+            <li>Modify any fields you want to change</li>
+            <li>Click <strong>Update Project</strong> to save your changes</li>
+            <li>Or click <strong>Cancel</strong> to discard changes</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">🗑️ Deleting a Project</h2>
+        <div class="help-content">
+          <p class="help-intro">Remove projects you no longer need.</p>
+          <ol class="help-steps">
+            <li>Click on a project card to view its details</li>
+            <li>Click the <strong>Delete Project</strong> button in the Actions card</li>
+            <li>Confirm the deletion in the popup dialog</li>
+            <li><em>Note: This only removes the project from Synapse—your actual files remain untouched</em></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">🔍 Searching & Filtering</h2>
+        <div class="help-content">
+          <p class="help-intro">Find projects quickly using search and tags.</p>
+          <ol class="help-steps">
+            <li><strong>Search by name</strong>: Type in the search bar at the top—results filter automatically</li>
+            <li><strong>Filter by tags</strong>: Click any tag below the search bar to show only projects with that tag</li>
+            <li><strong>Multiple tags</strong>: Click multiple tags to narrow down results further</li>
+            <li><strong>Clear filters</strong>: Click the <strong>Clear All</strong> button to reset tag filters</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">▶️ Running a Project</h2>
+        <div class="help-content">
+          <p class="help-intro">Launch your project's executable or command.</p>
+          <ol class="help-steps">
+            <li>Click on a project to open its dashboard</li>
+            <li>In the <strong>Actions</strong> card, click <strong>Run Project</strong></li>
+            <li>The command or executable you configured will run</li>
+            <li><em>Note: If you didn't set an executable path/command, this button won't appear</em></li>
+          </ol>
+          <p class="help-note"><strong>Tip:</strong> You can set executable paths to .exe files, .bat files, or shell commands</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">📁 Opening Project Folder</h2>
+        <div class="help-content">
+          <p class="help-intro">Quickly access your project's files in File Explorer.</p>
+          <ol class="help-steps">
+            <li>Click on a project to open its dashboard</li>
+            <li>In the <strong>Actions</strong> card, click <strong>Open Folder</strong></li>
+            <li>Your file explorer will open to the folder you configured</li>
+            <li><em>Note: You must set a Local Folder Path in the project settings for this to work</em></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">💻 Opening in VS Code</h2>
+        <div class="help-content">
+          <p class="help-intro">Launch your project directly in Visual Studio Code.</p>
+          <ol class="help-steps">
+            <li>Click on a project to open its dashboard</li>
+            <li>In the <strong>Actions</strong> card, click <strong>Open in VS Code</strong></li>
+            <li>VS Code will open with your project folder</li>
+            <li><em>Requirements: VS Code must be installed and the <code>code</code> command available in your PATH</em></li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">🐙 GitHub Integration</h2>
+        <div class="help-content">
+          <p class="help-intro">Fetch live data from your GitHub repositories.</p>
+          <ol class="help-steps">
+            <li><strong>Basic setup</strong>: Add a GitHub Repository URL when creating/editing a project</li>
+            <li><strong>For better rate limits</strong> (optional):
+              <ul>
+                <li>Go to Settings from the sidebar</li>
+                <li>Under GitHub Integration, paste your Personal Access Token (PAT)</li>
+                <li>Create a token at <a onclick="openExternalLink('https://github.com/settings/tokens')" class="help-link">github.com/settings/tokens</a></li>
+                <li>The token needs <code>repo</code> scope for private repos, or no scopes for public repos</li>
+              </ul>
+            </li>
+            <li><strong>View GitHub data</strong>:
+              <ul>
+                <li>Open a project with a GitHub URL</li>
+                <li>In the <strong>GitHub Repo</strong> card, click <strong>Fetch GitHub Info</strong></li>
+                <li>The card will show: latest commit, open issues, pull requests, stars, and latest release</li>
+              </ul>
+            </li>
+            <li><strong>Visit on GitHub</strong>: Click the <strong>View on GitHub</strong> button to open the repo in your browser</li>
+          </ol>
+          <p class="help-note"><strong>Note:</strong> Without a token, you're limited to 60 API requests per hour. With a token, you get 5,000 per hour.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">💾 Export & Import Data</h2>
+        <div class="help-content">
+          <p class="help-intro">Backup your projects or transfer them to another computer.</p>
+          <h3 class="help-subtitle">Exporting</h3>
+          <ol class="help-steps">
+            <li>Go to <strong>Settings</strong> from the sidebar</li>
+            <li>Scroll to <strong>Data Management</strong></li>
+            <li>Click <strong>Export Data</strong></li>
+            <li>Choose where to save the JSON file</li>
+            <li>Your projects are now backed up!</li>
+          </ol>
+          <h3 class="help-subtitle">Importing</h3>
+          <ol class="help-steps">
+            <li>Go to <strong>Settings</strong> from the sidebar</li>
+            <li>Scroll to <strong>Data Management</strong></li>
+            <li>Click <strong>Import Data</strong></li>
+            <li>Select a previously exported JSON file</li>
+            <li>Your projects will be restored</li>
+          </ol>
+          <p class="help-note"><strong>Warning:</strong> Importing will replace all current projects. Export first if you want to keep them!</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">🔄 Updates</h2>
+        <div class="help-content">
+          <p class="help-intro">Keep Project Synapse up to date with the latest features.</p>
+          <ol class="help-steps">
+            <li><strong>Automatic checks</strong>: The app checks for updates when you launch it</li>
+            <li><strong>Update notification</strong>: If an update is available, you'll see a "NEW" badge on the Updates button in the sidebar</li>
+            <li><strong>View changelog</strong>: Click the <strong>Updates</strong> button to see what's new</li>
+            <li><strong>Download update</strong>: Click <strong>Download Update</strong> in the modal</li>
+            <li><strong>Install</strong>: After download completes, click <strong>Restart and Install</strong></li>
+            <li><strong>Manual check</strong>: Go to Settings and click <strong>Check for Updates Now</strong> anytime</li>
+          </ol>
+          <p class="help-note"><strong>Note:</strong> Updates are differential (only changed files), so downloads are typically 5-20MB instead of the full 150MB.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">⌨️ Tips & Shortcuts</h2>
+        <div class="help-content">
+          <ul class="help-tips">
+            <li><strong>Quick navigation</strong>: Use the sidebar to switch between Projects, Help, and Settings</li>
+            <li><strong>Status indicators</strong>: Projects show colored status badges (Active=green, Completed=blue, Archived=gray)</li>
+            <li><strong>Image previews</strong>: When adding an image, you'll see a live preview as you paste or select</li>
+            <li><strong>Tags are auto-created</strong>: Just type them in comma-separated format—they'll appear as filter chips automatically</li>
+            <li><strong>GitHub fetching</strong>: The first fetch might take a moment, but data is cached for speed</li>
+            <li><strong>Multiple actions</strong>: You can run, open folder, and edit from the same project dashboard</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">🆘 Troubleshooting</h2>
+        <div class="help-content">
+          <h3 class="help-subtitle">Updates stuck at 0%?</h3>
+          <ul class="help-tips">
+            <li>Wait 30 seconds—the app will detect the stuck download and offer a retry button</li>
+            <li>Check your internet connection</li>
+            <li>Try the <strong>Check for Updates Now</strong> button in Settings</li>
+            <li>As a last resort, download the latest installer manually from GitHub Releases</li>
+          </ul>
+          
+          <h3 class="help-subtitle">"Open in VS Code" not working?</h3>
+          <ul class="help-tips">
+            <li>Make sure VS Code is installed</li>
+            <li>During VS Code installation, check "Add to PATH"</li>
+            <li>Restart your computer after installing VS Code</li>
+          </ul>
+          
+          <h3 class="help-subtitle">GitHub API rate limit?</h3>
+          <ul class="help-tips">
+            <li>Without a token: 60 requests/hour</li>
+            <li>With a token: 5,000 requests/hour</li>
+            <li>Add your GitHub PAT in Settings to increase limits</li>
+          </ul>
+          
+          <h3 class="help-subtitle">Project won't run?</h3>
+          <ul class="help-tips">
+            <li>Check that the executable path is correct</li>
+            <li>Make sure the file exists and has the right permissions</li>
+            <li>For commands like <code>npm start</code>, ensure Node.js/npm is installed</li>
+            <li>Check the DevTools console (Ctrl+Shift+I) for error messages</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h2 class="help-title">📝 Data Storage</h2>
+        <div class="help-content">
+          <p class="help-intro">Understanding where your data lives.</p>
+          <ul class="help-tips">
+            <li><strong>Local storage</strong>: All project data is stored locally on your computer using electron-store</li>
+            <li><strong>No cloud</strong>: Nothing is sent to any server (except GitHub API calls when you fetch repo data)</li>
+            <li><strong>Privacy</strong>: Your projects, notes, and settings stay on your machine</li>
+            <li><strong>Backup recommendation</strong>: Use the Export Data feature regularly to create backups</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-footer">
+        <p>Still need help? Check the <a onclick="openExternalLink('https://github.com/Emir2099/PROJECT-SYNAPSE')" class="help-link">GitHub repository</a> for issues and discussions.</p>
+        <p style="margin-top: 1rem; color: var(--syn-gray); font-size: 0.875rem;">Project Synapse v${state.currentVersion}</p>
       </div>
     </div>
   `;
