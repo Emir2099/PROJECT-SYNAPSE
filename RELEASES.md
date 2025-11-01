@@ -4,6 +4,30 @@ User-facing changelog for Project Synapse.
 
 ---
 
+## Version 2.3.0 - November 1, 2025
+
+### 🐙 What's New
+
+• GitHub card now uses a local skeleton/loader while it fetches data, so the rest of the dashboard stays responsive.
+• Optional GitHub Personal Access Token (PAT) enables authenticated requests for higher rate limits and private repos (as permitted).
+• Add a project image/banner (URL or file, including base64/data URIs) and a publications field.
+• Cleaner layout: tuned sidebar width/padding and improved label spacing; added extra bottom margin to the dashboard cards grid.
+• Security fix: CSP updated to allow `img-src 'self' data:` so image previews and embedded images work reliably.
+
+### 🧠 Why it matters
+
+- Faster, non-blocking UI while GitHub data loads.
+- Fewer GitHub API rate-limit errors with tokens.
+- Richer projects with visuals and publications.
+- Better readability and spacing across the app.
+
+### 🔄 How to get the update
+
+- If you're on v2.2.0 or later: just open the app. It will detect v2.3.0 and download a small delta update automatically. You'll see an in-app prompt to install.
+- If you're on an older version (≤ 2.1.x): download and install the latest Windows installer from GitHub Releases once. Future updates will be automatic.
+
+---
+
 ## Version 2.2.0 - November 1, 2025
 
 ### 🚀 What's New
