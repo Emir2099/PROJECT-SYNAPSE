@@ -41,6 +41,34 @@ const escapeHtml = (text) => {
   return div.innerHTML;
 };
 
+const getProjectInitials = (name) => {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+};
+
+const getProjectAvatar = (project, size = 'md') => {
+  const sizes = {
+    sm: { width: '40px', height: '40px', fontSize: '1rem' },
+    md: { width: '64px', height: '64px', fontSize: '1.5rem' },
+    lg: { width: '120px', height: '120px', fontSize: '3rem' }
+  };
+  const s = sizes[size];
+  
+  if (project.image) {
+    return `<div style="width: ${s.width}; height: ${s.height}; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: white;">
+      <img src="${escapeHtml(project.image)}" alt="${escapeHtml(project.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+    </div>`;
+  }
+  
+  const initials = getProjectInitials(project.name);
+  return `<div style="width: ${s.width}; height: ${s.height}; border-radius: 8px; background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%); display: flex; align-items: center; justify-content: center; font-weight: bold; color: black; font-size: ${s.fontSize}; flex-shrink: 0;">
+    ${initials}
+  </div>`;
+};
+
 // Initialize app
 async function init() {
   await loadProjects();
@@ -277,8 +305,8 @@ function renderProjectCard(project) {
   return `
     <div class="card cursor-pointer" onclick="selectProject('${project.id}')">
       <div class="flex items-center gap-4 mb-4">
-        <div style="width: 40px; height: 40px; background: white; border-radius: 4px; flex-shrink: 0;"></div>
-        <h2 class="text-xl font-bold truncate">${escapeHtml(project.name)}</h2>
+        ${getProjectAvatar(project, 'sm')}
+        <h2 class="text-xl font-bold" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(project.name)}</h2>
       </div>
       <p class="text-gray" style="font-size: 0.875rem; margin-bottom: 1rem; height: 4rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
         ${escapeHtml(project.description || '')}
@@ -299,23 +327,23 @@ function renderProjectDashboard() {
   
   return `
     <div class="p-10" style="max-width: 1200px; margin: 0 auto;">
-      <button class="btn btn-secondary mb-6" onclick="navigateTo('grid')">
+      <div style="display: inline-flex; align-items: center; gap: 0.5rem; color: var(--syn-gray); cursor: pointer; margin-bottom: 1.5rem; font-size: 0.875rem;" onclick="navigateTo('grid')">
         ${createIcon('arrow-left', 'lucide-sm')} Back to projects
-      </button>
+      </div>
       
-      <div class="flex justify-between items-start mb-8">
-        <div>
+      <div class="flex justify-between items-start" style="margin-bottom: 1rem;">
+        <div style="flex: 1;">
           <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 0.75rem;">${escapeHtml(project.name)}</h1>
           <div class="flex flex-wrap gap-2">
             ${(project.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
           </div>
         </div>
-        <div class="flex gap-2">
-          <button class="btn btn-secondary" onclick="editProject('${project.id}')">
-            ${createIcon('edit')}
+        <div class="flex gap-2" style="flex-shrink: 0;">
+          <button class="btn btn-secondary" style="padding: 0.5rem 0.75rem; height: 40px; display: flex; align-items: center; justify-content: center;" onclick="editProject('${project.id}')">
+            ${createIcon('edit', 'lucide-sm')}
           </button>
-          <button class="btn btn-secondary" onclick="deleteProject('${project.id}')">
-            ${createIcon('trash')}
+          <button class="btn btn-secondary" style="padding: 0.5rem 0.75rem; height: 40px; display: flex; align-items: center; justify-content: center;" onclick="deleteProject('${project.id}')">
+            ${createIcon('trash', 'lucide-sm')}
           </button>
         </div>
       </div>
@@ -343,49 +371,58 @@ function renderProjectDashboard() {
         ` : ''}
       </div>
       
+      <!-- Large Project Banner -->
+      <div style="position: relative; border-radius: 12px; overflow: hidden; margin-bottom: 2rem; min-height: 280px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border: 2px solid var(--syn-border);">
+        ${project.image ? `
+          <img src="${escapeHtml(project.image)}" alt="${escapeHtml(project.name)}" style="width: 100%; height: 100%; object-fit: cover;">
+        ` : `
+          <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0.15; font-size: 8rem; font-weight: bold; color: white; user-select: none; overflow: hidden;">
+            ${escapeHtml(project.name)}
+          </div>
+        `}
+      </div>
+      
       <p class="text-gray" style="font-size: 1.125rem; margin-bottom: 2.5rem; max-width: 900px;">
         ${escapeHtml(project.description || '')}
       </p>
       
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-        ${project.localPath || project.executablePath ? `
-          <div class="card">
-            <h3 class="text-2xl font-bold mb-4">Local Status</h3>
-            <div class="space-y-3">
-              ${project.localPath ? `
-                <p class="text-gray">
-                  <span class="font-bold text-white">Folder Path:</span><br>
-                  <a onclick="openFolder('${escapeHtml(project.localPath)}')" class="cursor-pointer" style="text-decoration: underline;" title="${escapeHtml(project.localPath)}">
-                    ${escapeHtml(project.localPath)}
-                  </a>
-                </p>
-              ` : ''}
-              ${project.executablePath ? `
-                <p class="text-gray">
-                  <span class="font-bold text-white">Executable:</span><br>
-                  <a onclick="runCommand('${escapeHtml(project.executablePath)}')" class="cursor-pointer" style="text-decoration: underline;" title="${escapeHtml(project.executablePath)}">
-                    ${escapeHtml(project.executablePath)}
-                  </a>
-                </p>
-              ` : ''}
-            </div>
+      <div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 2rem;">
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Local Status</h3>
+          <div class="space-y-3">
+            ${project.localPath ? `
+              <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
+                <span class="font-bold text-white">Folder Path:</span><br>
+                <a onclick="openFolder('${escapeHtml(project.localPath)}')" class="cursor-pointer" style="text-decoration: underline; word-break: break-all;" title="${escapeHtml(project.localPath)}">
+                  ${escapeHtml(project.localPath).length > 50 ? '...' + escapeHtml(project.localPath).substring(project.localPath.length - 47) : escapeHtml(project.localPath)}
+                </a>
+              </p>
+            ` : ''}
+            ${project.executablePath ? `
+              <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
+                <span class="font-bold text-white">Executable:</span><br>
+                <a onclick="runCommand('${escapeHtml(project.executablePath)}')" class="cursor-pointer" style="text-decoration: underline; word-break: break-all;" title="${escapeHtml(project.executablePath)}">
+                  ${escapeHtml(project.executablePath).length > 50 ? '...' + escapeHtml(project.executablePath).substring(project.executablePath.length - 47) : escapeHtml(project.executablePath)}
+                </a>
+              </p>
+            ` : ''}
           </div>
-        ` : ''}
+        </div>
 
-        ${project.githubRepo ? `
-          <div class="card">
-            <h3 class="text-2xl font-bold mb-4">GitHub Repo</h3>
-            <div class="space-y-3">
-              <p class="text-gray">
-                <a onclick="openExternalLink('${escapeHtml(project.githubRepo)}')" class="text-white cursor-pointer" style="text-decoration: underline; display: inline-flex; align-items: center; gap: 0.5rem;">
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">GitHub Repo</h3>
+          <div class="space-y-3">
+            ${project.githubRepo ? `
+              <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
+                <a onclick="openExternalLink('${escapeHtml(project.githubRepo)}')" class="text-white cursor-pointer" style="text-decoration: underline; display: inline-flex; align-items: center; gap: 0.5rem; word-break: break-all;">
                   ${escapeHtml(project.githubRepo.replace('https://github.com/', ''))} ${createIcon('external-link', 'lucide-sm')}
                 </a>
               </p>
               ${githubInfo ? `
                 ${githubInfo.lastCommit ? `
-                  <p class="text-gray">
+                  <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
                     <span class="font-bold text-white">Last Commit:</span><br>
-                    ${escapeHtml(githubInfo.lastCommit.message)} (${timeAgo(githubInfo.lastCommit.date)})
+                    <span style="display: block; margin-top: 0.25rem;">${escapeHtml(githubInfo.lastCommit.message)} (${timeAgo(githubInfo.lastCommit.date)})</span>
                   </p>
                 ` : ''}
                 ${githubInfo.releases && githubInfo.releases.length > 0 ? `
@@ -401,18 +438,27 @@ function renderProjectDashboard() {
                   ${createIcon('refresh-cw', 'lucide-sm')} Fetch GitHub Info
                 </button>
               `}
-            </div>
+            ` : '<p class="text-gray">No GitHub repository linked</p>'}
           </div>
-        ` : ''}
+        </div>
+
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Publications</h3>
+          <div class="space-y-3">
+            ${project.publications ? `
+              <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
+                ${escapeHtml(project.publications)}
+              </p>
+            ` : '<p class="text-gray">No publications listed</p>'}
+          </div>
+        </div>
         
-        ${project.notes ? `
-          <div class="card" style="grid-column: 1 / -1;">
-            <h3 class="text-2xl font-bold mb-4">Project Notes</h3>
-            <div class="text-gray" style="white-space: pre-wrap;">
-              ${escapeHtml(project.notes)}
-            </div>
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Project Notes</h3>
+          <div class="text-gray" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">
+            ${project.notes ? escapeHtml(project.notes) : '## Next Steps\n\n- Add project details\n- Configure settings'}
           </div>
-        ` : ''}
+        </div>
       </div>
     </div>
   `;
@@ -490,6 +536,22 @@ function renderProjectForm(project) {
         </div>
         
         <div class="form-group">
+          <label class="form-label">Project Image (optional)</label>
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div id="imagePreview" style="width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid var(--syn-border); display: flex; align-items: center; justify-content: center; background: #1a1a1a;">
+              ${project?.image ? `<img src="${escapeHtml(project.image)}" style="width: 100%; height: 100%; object-fit: cover;">` : `<span style="color: var(--syn-gray); font-size: 0.75rem;">No image</span>`}
+            </div>
+            <div style="flex: 1;">
+              <input type="text" name="image" id="imageInput" class="input" placeholder="Paste image URL or select file" value="${escapeHtml(project?.image || '')}" oninput="previewImage(this.value)">
+              <input type="file" id="imageFile" accept="image/*" style="display: none;" onchange="handleImageFile(this)">
+              <button type="button" class="btn btn-secondary" style="margin-top: 0.5rem;" onclick="document.getElementById('imageFile').click()">
+                ${createIcon('upload', 'lucide-sm')} Choose File
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group">
           <label class="form-label">Description</label>
           <textarea name="description" class="input">${escapeHtml(project?.description || '')}</textarea>
         </div>
@@ -529,6 +591,11 @@ function renderProjectForm(project) {
             <option value="completed" ${project?.status === 'completed' ? 'selected' : ''}>Completed</option>
             <option value="archived" ${project?.status === 'archived' ? 'selected' : ''}>Archived</option>
           </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Publications</label>
+          <textarea name="publications" class="input" rows="4" placeholder="List your publications, papers, or related work">${escapeHtml(project?.publications || '')}</textarea>
         </div>
         
         <div class="form-group">
@@ -617,10 +684,12 @@ async function saveProject(event) {
     id: formData.get('id') || undefined,
     name: formData.get('name'),
     description: formData.get('description'),
+    image: formData.get('image') || undefined,
     localPath: formData.get('localPath'),
     executablePath: formData.get('executablePath'),
     githubRepo: formData.get('githubRepo'),
     status: formData.get('status'),
+    publications: formData.get('publications'),
     notes: formData.get('notes'),
     tags: formData.get('tags') ? formData.get('tags').split(',').map(t => t.trim()).filter(t => t) : []
   };
@@ -645,6 +714,28 @@ async function selectFile(inputName) {
   const result = await window.electronAPI.selectFile();
   if (result.success && result.path) {
     document.querySelector(`input[name="${inputName}"]`).value = result.path;
+  }
+}
+
+function previewImage(url) {
+  const preview = document.getElementById('imagePreview');
+  if (url && url.trim()) {
+    preview.innerHTML = `<img src="${escapeHtml(url)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=\\'color: var(--syn-gray); font-size: 0.75rem;\\'>Invalid</span>'">`;
+  } else {
+    preview.innerHTML = '<span style="color: var(--syn-gray); font-size: 0.75rem;">No image</span>';
+  }
+}
+
+function handleImageFile(input) {
+  const file = input.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataUrl = e.target.result;
+      document.getElementById('imageInput').value = dataUrl;
+      previewImage(dataUrl);
+    };
+    reader.readAsDataURL(file);
   }
 }
 
