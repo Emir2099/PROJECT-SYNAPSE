@@ -191,7 +191,7 @@ function renderSidebar() {
         <span class="sidebar-icon-text">Settings</span>
       </button>
       <div style="flex: 1;"></div>
-      <button class="sidebar-icon" onclick="viewChangelog()" style="position: relative;" title="Release Notes">
+      <button class="sidebar-icon" onclick="viewChangelog()" style="position: relative; margin-bottom: 2rem;" title="Release Notes">
         ${createIcon('file', 'lucide-lg')}
         <span class="sidebar-icon-text">Updates</span>
         ${state.updateAvailable ? '<span class="update-badge" style="top: 4px; right: 4px;">NEW</span>' : ''}
@@ -536,7 +536,7 @@ function renderProjectForm(project) {
           <textarea name="notes" class="input" rows="6">${escapeHtml(project?.notes || '')}</textarea>
         </div>
         
-        <div class="flex gap-4">
+        <div class="flex gap-4" style="margin-bottom: 3rem;">
           <button type="submit" class="btn btn-primary" style="flex: 1;">
             ${createIcon('save', 'lucide-sm')} ${isEdit ? 'Update' : 'Create'} Project
           </button>

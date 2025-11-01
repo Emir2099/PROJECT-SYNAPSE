@@ -149,14 +149,15 @@
         }
         
         .sidebar {
-            width: 80px;
+            width: 90px;
             background: var(--syn-black);
             border-right: 2px solid var(--syn-border);
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 1rem;
+            padding: 1rem 0.5rem;
             gap: 1.5rem;
+            overflow: visible;
         }
         
         .main-content {
@@ -344,7 +345,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0.75rem;
+            padding: 0.5rem 0.75rem;
             border-radius: 0.5rem;
             width: 100%;
             transition: all 0.2s;
@@ -353,6 +354,7 @@
             border: none;
             background: transparent;
             cursor: pointer;
+            overflow: visible;
         }
         
         .sidebar-icon:hover {
@@ -366,8 +368,12 @@
         }
         
         .sidebar-icon-text {
-            font-size: 0.75rem;
-            margin-top: 0.25rem;
+            font-size: 0.65rem;
+            margin-top: 0.3rem;
+            text-align: center;
+            line-height: 1.1;
+            white-space: nowrap;
+            display: block;
         }
         
         .hidden {
