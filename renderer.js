@@ -1,0 +1,667 @@
+// Project Synapse - Renderer Process
+
+// State management
+let state = {
+  projects: [],
+  currentView: 'grid',
+  selectedProject: null,
+  searchTerm: '',
+  activeTags: new Set(),
+  settings: {},
+  githubCache: {}
+};
+
+// Utility functions
+const timeAgo = (dateString) => {
+  const now = new Date();
+  const past = new Date(dateString);
+  const seconds = Math.floor((now - past) / 1000);
+
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+  return Math.floor(seconds) + " seconds ago";
+};
+
+const escapeHtml = (text) => {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+};
+
+// Initialize app
+async function init() {
+  await loadProjects();
+  await loadSettings();
+  render();
+}
+
+// Load projects from electron store
+async function loadProjects() {
+  const result = await window.electronAPI.getProjects();
+  if (result.success) {
+    state.projects = result.data;
+  } else {
+    console.error('Error loading projects:', result.error);
+    alert('Error loading projects: ' + result.error);
+  }
+}
+
+// Load settings
+async function loadSettings() {
+  const result = await window.electronAPI.getSettings();
+  if (result.success) {
+    state.settings = result.data;
+  }
+}
+
+// Get all unique tags
+function getAllTags() {
+  const tags = new Set();
+  state.projects.forEach(p => {
+    if (p.tags && Array.isArray(p.tags)) {
+      p.tags.forEach(t => tags.add(t));
+    }
+  });
+  return Array.from(tags).sort();
+}
+
+// Filter projects
+function getFilteredProjects() {
+  return state.projects.filter(project => {
+    const searchMatch =
+      project.name.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+      (project.description && project.description.toLowerCase().includes(state.searchTerm.toLowerCase()));
+    
+    const tagsMatch =
+      state.activeTags.size === 0 ||
+      (project.tags && Array.from(state.activeTags).every(tag => project.tags.includes(tag)));
+      
+    return searchMatch && tagsMatch;
+  });
+}
+
+// Render functions
+function render() {
+  const root = document.getElementById('root');
+  
+  switch (state.currentView) {
+    case 'project':
+      root.innerHTML = renderApp(renderProjectDashboard());
+      break;
+    case 'settings':
+      root.innerHTML = renderApp(renderSettings());
+      break;
+    case 'add-project':
+      root.innerHTML = renderApp(renderAddProject());
+      break;
+    case 'edit-project':
+      root.innerHTML = renderApp(renderEditProject());
+      break;
+    case 'grid':
+    default:
+      root.innerHTML = renderApp(renderProjectGrid());
+  }
+  
+  attachEventListeners();
+}
+
+function renderApp(content) {
+  return `
+    <div class="app-container">
+      ${renderSidebar()}
+      <main class="main-content">
+        ${content}
+      </main>
+    </div>
+  `;
+}
+
+function renderSidebar() {
+  const isProjectsActive = state.currentView === 'grid' || state.currentView === 'project';
+  const isSettingsActive = state.currentView === 'settings';
+  
+  return `
+    <nav class="sidebar">
+      <div class="p-2 mb-4">
+        <div style="width: 28px; height: 28px; background: white; border-radius: 4px;"></div>
+      </div>
+      <button class="sidebar-icon ${isProjectsActive ? 'active' : ''}" onclick="navigateTo('grid')">
+        <span style="font-size: 24px;">📊</span>
+        <span class="sidebar-icon-text">Projects</span>
+      </button>
+      <button class="sidebar-icon ${isSettingsActive ? 'active' : ''}" onclick="navigateTo('settings')">
+        <span style="font-size: 24px;">⚙️</span>
+        <span class="sidebar-icon-text">Settings</span>
+      </button>
+    </nav>
+  `;
+}
+
+function renderProjectGrid() {
+  const filteredProjects = getFilteredProjects();
+  const allTags = getAllTags();
+  
+  return `
+    <div class="p-10" style="max-width: 1400px; margin: 0 auto;">
+      <div class="flex justify-between items-center mb-10">
+        <h1 class="text-4xl font-bold">Project Synapse</h1>
+        <button class="btn btn-primary" onclick="navigateTo('add-project')">
+          <span>+</span> Add Project
+        </button>
+      </div>
+      
+      <div style="position: relative; margin-bottom: 1.5rem;">
+        <input
+          type="text"
+          placeholder="Find projects..."
+          class="input"
+          style="padding-left: 3rem;"
+          value="${escapeHtml(state.searchTerm)}"
+          oninput="handleSearch(this.value)"
+        />
+        <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-size: 20px;">🔍</span>
+      </div>
+
+      ${allTags.length > 0 ? `
+        <div class="mb-8">
+          <h2 style="font-size: 0.875rem; font-weight: 600; text-transform: uppercase; color: var(--syn-gray); margin-bottom: 0.75rem;">
+            Filter by Tag
+          </h2>
+          <div class="flex flex-wrap gap-2">
+            ${allTags.map(tag => `
+              <button
+                class="tag ${state.activeTags.has(tag) ? 'active' : ''}"
+                style="border: 2px solid ${state.activeTags.has(tag) ? 'var(--syn-white)' : 'var(--syn-border)'}; cursor: pointer;"
+                onclick="toggleTag('${escapeHtml(tag)}')"
+              >
+                ${escapeHtml(tag)}
+              </button>
+            `).join('')}
+            ${state.activeTags.size > 0 ? `
+              <button
+                style="padding: 0.25rem 0.75rem; font-size: 0.875rem; color: var(--syn-gray); background: none; border: none; cursor: pointer;"
+                onclick="clearTags()"
+              >
+                ❌ Clear
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${filteredProjects.length === 0 ? `
+        <div class="text-center text-gray mt-4">
+          <p style="font-size: 1.5rem; margin-bottom: 1rem;">📭</p>
+          <p>No projects found. ${state.projects.length === 0 ? 'Add your first project to get started!' : 'Try adjusting your filters.'}</p>
+        </div>
+      ` : `
+        <div class="grid grid-cols-3">
+          ${filteredProjects.map(project => renderProjectCard(project)).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderProjectCard(project) {
+  const displayTags = project.tags ? project.tags.slice(0, 3) : [];
+  const extraTags = project.tags ? project.tags.length - 3 : 0;
+  
+  return `
+    <div class="card cursor-pointer" onclick="selectProject('${project.id}')">
+      <div class="flex items-center gap-4 mb-4">
+        <div style="width: 40px; height: 40px; background: white; border-radius: 4px; flex-shrink: 0;"></div>
+        <h2 class="text-xl font-bold truncate">${escapeHtml(project.name)}</h2>
+      </div>
+      <p class="text-gray" style="font-size: 0.875rem; margin-bottom: 1rem; height: 4rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
+        ${escapeHtml(project.description || '')}
+      </p>
+      <div class="flex flex-wrap gap-2">
+        ${displayTags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+        ${extraTags > 0 ? `<span class="tag">+${extraTags}</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderProjectDashboard() {
+  const project = state.selectedProject;
+  if (!project) return '<div class="loading">Project not found</div>';
+  
+  const githubInfo = state.githubCache[project.githubRepo];
+  
+  return `
+    <div class="p-10" style="max-width: 1200px; margin: 0 auto;">
+      <button class="btn btn-secondary mb-6" onclick="navigateTo('grid')">
+        <span>←</span> Back to projects
+      </button>
+      
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 0.75rem;">${escapeHtml(project.name)}</h1>
+          <div class="flex flex-wrap gap-2">
+            ${(project.tags || []).map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-secondary" onclick="editProject('${project.id}')">
+            <span>✏️</span>
+          </button>
+          <button class="btn btn-secondary" onclick="deleteProject('${project.id}')">
+            <span>🗑️</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-4 mb-8">
+        ${project.executablePath ? `
+          <button class="btn btn-primary" onclick="runCommand('${escapeHtml(project.executablePath)}')">
+            <span>▶️</span> Run Project
+          </button>
+        ` : ''}
+        ${project.localPath ? `
+          <button class="btn btn-secondary" onclick="openFolder('${escapeHtml(project.localPath)}')">
+            <span>📁</span> Open Folder
+          </button>
+        ` : ''}
+        ${project.githubRepo ? `
+          <button class="btn btn-secondary" onclick="openExternalLink('${escapeHtml(project.githubRepo)}')">
+            <span>🐙</span> View on GitHub
+          </button>
+        ` : ''}
+        ${project.localPath ? `
+          <button class="btn btn-secondary" onclick="runCommand('code &quot;${escapeHtml(project.localPath)}&quot;')">
+            <span>💻</span> VS Code
+          </button>
+        ` : ''}
+      </div>
+      
+      <p class="text-gray" style="font-size: 1.125rem; margin-bottom: 2.5rem; max-width: 900px;">
+        ${escapeHtml(project.description || '')}
+      </p>
+      
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        ${project.localPath || project.executablePath ? `
+          <div class="card">
+            <h3 class="text-2xl font-bold mb-4">Local Status</h3>
+            <div class="space-y-3">
+              ${project.localPath ? `
+                <p class="text-gray">
+                  <span class="font-bold text-white">Folder Path:</span><br>
+                  <a onclick="openFolder('${escapeHtml(project.localPath)}')" class="cursor-pointer" style="text-decoration: underline;" title="${escapeHtml(project.localPath)}">
+                    ${escapeHtml(project.localPath)}
+                  </a>
+                </p>
+              ` : ''}
+              ${project.executablePath ? `
+                <p class="text-gray">
+                  <span class="font-bold text-white">Executable:</span><br>
+                  <a onclick="runCommand('${escapeHtml(project.executablePath)}')" class="cursor-pointer" style="text-decoration: underline;" title="${escapeHtml(project.executablePath)}">
+                    ${escapeHtml(project.executablePath)}
+                  </a>
+                </p>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        ${project.githubRepo ? `
+          <div class="card">
+            <h3 class="text-2xl font-bold mb-4">GitHub Repo</h3>
+            <div class="space-y-3">
+              <p class="text-gray">
+                <a onclick="openExternalLink('${escapeHtml(project.githubRepo)}')" class="text-white cursor-pointer" style="text-decoration: underline;">
+                  ${escapeHtml(project.githubRepo.replace('https://github.com/', ''))} 🔗
+                </a>
+              </p>
+              ${githubInfo ? `
+                ${githubInfo.lastCommit ? `
+                  <p class="text-gray">
+                    <span class="font-bold text-white">Last Commit:</span><br>
+                    ${escapeHtml(githubInfo.lastCommit.message)} (${timeAgo(githubInfo.lastCommit.date)})
+                  </p>
+                ` : ''}
+                ${githubInfo.releases && githubInfo.releases.length > 0 ? `
+                  <div>
+                    <h4 class="font-bold text-white mb-1" style="font-size: 0.875rem;">Latest Release:</h4>
+                    <a onclick="openExternalLink('${escapeHtml(githubInfo.releases[0].downloadUrl)}')" class="text-gray cursor-pointer flex items-center gap-2" style="text-decoration: underline;">
+                      <span>⬇️</span> ${escapeHtml(githubInfo.releases[0].name)} (${escapeHtml(githubInfo.releases[0].tag)})
+                    </a>
+                  </div>
+                ` : ''}
+              ` : `
+                <button class="btn btn-secondary" onclick="fetchGitHubInfo('${project.id}', '${escapeHtml(project.githubRepo)}')">
+                  🔄 Fetch GitHub Info
+                </button>
+              `}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${project.notes ? `
+          <div class="card" style="grid-column: 1 / -1;">
+            <h3 class="text-2xl font-bold mb-4">Project Notes</h3>
+            <div class="text-gray" style="white-space: pre-wrap;">
+              ${escapeHtml(project.notes)}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderSettings() {
+  return `
+    <div class="p-10" style="max-width: 900px; margin: 0 auto;">
+      <h1 class="text-4xl font-bold mb-10">Settings</h1>
+      
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Appearance</h3>
+          <p class="text-gray">Theme is locked to Black & White.</p>
+        </div>
+        
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">GitHub Integration</h3>
+          <p class="text-gray mb-4">Set your GitHub Personal Access Token to enable syncing repositories and releases.</p>
+          <label class="form-label">GitHub PAT</label>
+          <input 
+            type="password"
+            class="input"
+            placeholder="ghp_..."
+            value="${escapeHtml(state.settings.githubToken || '')}"
+            onchange="saveGithubToken(this.value)"
+          />
+          <p class="text-gray" style="font-size: 0.75rem; margin-top: 0.5rem;">
+            Create a token at <a onclick="openExternalLink('https://github.com/settings/tokens')" class="text-white cursor-pointer" style="text-decoration: underline;">github.com/settings/tokens</a>
+          </p>
+        </div>
+        
+        <div class="card">
+          <h3 class="text-2xl font-bold mb-4">Data Management</h3>
+          <p class="text-gray mb-4">Your project database is stored locally. You can export or import it here.</p>
+          <div class="flex gap-4">
+            <button class="btn btn-secondary" style="flex: 1;" onclick="exportData()">
+              <span>📤</span> Export Data
+            </button>
+            <button class="btn btn-secondary" style="flex: 1;" onclick="importData()">
+              <span>📥</span> Import Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAddProject() {
+  return renderProjectForm(null);
+}
+
+function renderEditProject() {
+  return renderProjectForm(state.selectedProject);
+}
+
+function renderProjectForm(project) {
+  const isEdit = !!project;
+  
+  return `
+    <div class="p-10" style="max-width: 800px; margin: 0 auto;">
+      <button class="btn btn-secondary mb-6" onclick="navigateTo(${isEdit ? "'project'" : "'grid'"})">
+        <span>←</span> Back
+      </button>
+      
+      <h1 class="text-4xl font-bold mb-10">${isEdit ? 'Edit' : 'Add'} Project</h1>
+      
+      <form id="projectForm" onsubmit="saveProject(event)">
+        ${isEdit ? `<input type="hidden" name="id" value="${project.id}">` : ''}
+        
+        <div class="form-group">
+          <label class="form-label">Project Name *</label>
+          <input type="text" name="name" class="input" required value="${escapeHtml(project?.name || '')}">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea name="description" class="input">${escapeHtml(project?.description || '')}</textarea>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Local Folder Path</label>
+          <div class="flex gap-2">
+            <input type="text" name="localPath" class="input" value="${escapeHtml(project?.localPath || '')}">
+            <button type="button" class="btn btn-secondary" onclick="selectFolder('localPath')">
+              📁 Browse
+            </button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Executable Path / Command</label>
+          <div class="flex gap-2">
+            <input type="text" name="executablePath" class="input" value="${escapeHtml(project?.executablePath || '')}">
+            <button type="button" class="btn btn-secondary" onclick="selectFile('executablePath')">
+              📄 Browse
+            </button>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">GitHub Repository URL</label>
+          <input type="url" name="githubRepo" class="input" placeholder="https://github.com/username/repo" value="${escapeHtml(project?.githubRepo || '')}">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Tags (comma-separated)</label>
+          <input type="text" name="tags" class="input" placeholder="python, ai, research" value="${project?.tags ? project.tags.join(', ') : ''}">
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" class="input">
+            <option value="active" ${project?.status === 'active' ? 'selected' : ''}>Active</option>
+            <option value="completed" ${project?.status === 'completed' ? 'selected' : ''}>Completed</option>
+            <option value="archived" ${project?.status === 'archived' ? 'selected' : ''}>Archived</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="input" rows="6">${escapeHtml(project?.notes || '')}</textarea>
+        </div>
+        
+        <div class="flex gap-4">
+          <button type="submit" class="btn btn-primary" style="flex: 1;">
+            <span>💾</span> ${isEdit ? 'Update' : 'Create'} Project
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="navigateTo(${isEdit ? "'project'" : "'grid'"})">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+// Event handlers
+function navigateTo(view) {
+  state.currentView = view;
+  if (view === 'grid') {
+    state.selectedProject = null;
+  }
+  render();
+}
+
+function handleSearch(value) {
+  state.searchTerm = value;
+  render();
+}
+
+function toggleTag(tag) {
+  if (state.activeTags.has(tag)) {
+    state.activeTags.delete(tag);
+  } else {
+    state.activeTags.add(tag);
+  }
+  render();
+}
+
+function clearTags() {
+  state.activeTags.clear();
+  render();
+}
+
+async function selectProject(projectId) {
+  state.selectedProject = state.projects.find(p => p.id === projectId);
+  state.currentView = 'project';
+  
+  // Fetch GitHub info if available and not cached
+  if (state.selectedProject.githubRepo && !state.githubCache[state.selectedProject.githubRepo]) {
+    fetchGitHubInfo(projectId, state.selectedProject.githubRepo);
+  }
+  
+  render();
+}
+
+function editProject(projectId) {
+  state.selectedProject = state.projects.find(p => p.id === projectId);
+  state.currentView = 'edit-project';
+  render();
+}
+
+async function deleteProject(projectId) {
+  if (!confirm('Are you sure you want to delete this project?')) {
+    return;
+  }
+  
+  const result = await window.electronAPI.deleteProject(projectId);
+  if (result.success) {
+    await loadProjects();
+    navigateTo('grid');
+  } else {
+    alert('Error deleting project: ' + result.error);
+  }
+}
+
+async function saveProject(event) {
+  event.preventDefault();
+  
+  const formData = new FormData(event.target);
+  const project = {
+    id: formData.get('id') || undefined,
+    name: formData.get('name'),
+    description: formData.get('description'),
+    localPath: formData.get('localPath'),
+    executablePath: formData.get('executablePath'),
+    githubRepo: formData.get('githubRepo'),
+    status: formData.get('status'),
+    notes: formData.get('notes'),
+    tags: formData.get('tags') ? formData.get('tags').split(',').map(t => t.trim()).filter(t => t) : []
+  };
+  
+  const result = await window.electronAPI.saveProject(project);
+  if (result.success) {
+    await loadProjects();
+    navigateTo('grid');
+  } else {
+    alert('Error saving project: ' + result.error);
+  }
+}
+
+async function selectFolder(inputName) {
+  const result = await window.electronAPI.selectFolder();
+  if (result.success && result.path) {
+    document.querySelector(`input[name="${inputName}"]`).value = result.path;
+  }
+}
+
+async function selectFile(inputName) {
+  const result = await window.electronAPI.selectFile();
+  if (result.success && result.path) {
+    document.querySelector(`input[name="${inputName}"]`).value = result.path;
+  }
+}
+
+async function openFolder(path) {
+  const result = await window.electronAPI.openFolder(path);
+  if (!result.success) {
+    alert('Error opening folder: ' + result.error);
+  }
+}
+
+async function runCommand(command) {
+  const result = await window.electronAPI.runCommand(command);
+  if (!result.success) {
+    alert('Error running command: ' + result.error);
+  }
+}
+
+async function openExternalLink(url) {
+  const result = await window.electronAPI.openExternalLink(url);
+  if (!result.success) {
+    alert('Error opening link: ' + result.error);
+  }
+}
+
+async function fetchGitHubInfo(projectId, repoUrl) {
+  const result = await window.electronAPI.fetchGithubInfo(repoUrl);
+  if (result.success) {
+    state.githubCache[repoUrl] = result.data;
+    // If we're still viewing this project, re-render
+    if (state.selectedProject && state.selectedProject.id === projectId) {
+      render();
+    }
+  } else {
+    console.error('Error fetching GitHub info:', result.error);
+  }
+}
+
+async function saveGithubToken(token) {
+  state.settings.githubToken = token;
+  const result = await window.electronAPI.saveSettings(state.settings);
+  if (!result.success) {
+    alert('Error saving settings: ' + result.error);
+  }
+}
+
+async function exportData() {
+  const result = await window.electronAPI.exportData();
+  if (result.success && !result.canceled) {
+    alert('Data exported successfully to:\n' + result.path);
+  } else if (result.error) {
+    alert('Error exporting data: ' + result.error);
+  }
+}
+
+async function importData() {
+  if (!confirm('Importing will replace all current data. Continue?')) {
+    return;
+  }
+  
+  const result = await window.electronAPI.importData();
+  if (result.success && !result.canceled) {
+    await loadProjects();
+    await loadSettings();
+    navigateTo('grid');
+    alert('Data imported successfully!');
+  } else if (result.error) {
+    alert('Error importing data: ' + result.error);
+  }
+}
+
+function attachEventListeners() {
+  // Event listeners are attached via onclick attributes in the HTML
+  // This function is for any additional listeners if needed
+}
+
+// Start the app
+window.addEventListener('DOMContentLoaded', init);
