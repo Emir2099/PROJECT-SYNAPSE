@@ -1,8 +1,8 @@
-# Project Synapse v2.0
+# Project Synapse v2.1
 
 A modern desktop application for managing and organizing your development projects. Built with Electron.
 
-![Project Synapse](https://img.shields.io/badge/version-2.0.0-blue)
+![Project Synapse](https://img.shields.io/badge/version-2.1.0-blue)
 ![Electron](https://img.shields.io/badge/electron-28.0.0-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
