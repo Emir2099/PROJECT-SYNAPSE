@@ -9,6 +9,7 @@ let state = {
   activeTags: new Set(),
   settings: {},
   githubCache: {},
+  githubLoading: {},
   updateAvailable: false,
   updateInfo: null,
   downloadProgress: 0,
@@ -324,6 +325,7 @@ function renderProjectDashboard() {
   if (!project) return '<div class="loading">Project not found</div>';
   
   const githubInfo = state.githubCache[project.githubRepo];
+  const isGithubLoading = project.githubRepo ? !!state.githubLoading[project.githubRepo] : false;
   
   return `
     <div class="p-10" style="max-width: 1200px; margin: 0 auto;">
@@ -418,7 +420,13 @@ function renderProjectDashboard() {
                   ${escapeHtml(project.githubRepo.replace('https://github.com/', ''))} ${createIcon('external-link', 'lucide-sm')}
                 </a>
               </p>
-              ${githubInfo ? `
+              ${isGithubLoading ? `
+                <div class="gh-skeleton">
+                  <div class="skeleton-line" style="width: 70%;"></div>
+                  <div class="skeleton-line" style="width: 55%;"></div>
+                  <div class="skeleton-badge" style="width: 60%;"></div>
+                </div>
+              ` : githubInfo ? `
                 ${githubInfo.lastCommit ? `
                   <p class="text-gray" style="word-wrap: break-word; overflow-wrap: break-word;">
                     <span class="font-bold text-white">Last Commit:</span><br>
@@ -455,7 +463,7 @@ function renderProjectDashboard() {
         
         <div class="card">
           <h3 class="text-2xl font-bold mb-4">Project Notes</h3>
-          <div class="text-gray" style="white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word; max-width: 100%;">
+          <div class="text-gray" style="white-space: pre-line; word-break: break-word; overflow-wrap: anywhere; max-width: 100%; line-height: 1.6; letter-spacing: normal; word-spacing: normal;">
             ${project.notes ? escapeHtml(project.notes) : '## Next Steps\n\n- Add project details\n- Configure settings'}
           </div>
         </div>
@@ -650,6 +658,10 @@ async function selectProject(projectId) {
   
   // Fetch GitHub info if available and not cached
   if (state.selectedProject.githubRepo && !state.githubCache[state.selectedProject.githubRepo]) {
+    // mark loading for this repo
+    state.githubLoading[state.selectedProject.githubRepo] = true;
+    // render to show skeleton state immediately
+    render();
     fetchGitHubInfo(projectId, state.selectedProject.githubRepo);
   }
   
@@ -761,15 +773,26 @@ async function openExternalLink(url) {
 }
 
 async function fetchGitHubInfo(projectId, repoUrl) {
+  // set loading for this repo
+  state.githubLoading[repoUrl] = true;
+  // re-render the current view to show skeleton in the card only
+  render();
+
   const result = await window.electronAPI.fetchGithubInfo(repoUrl);
   if (result.success) {
     state.githubCache[repoUrl] = result.data;
+    state.githubLoading[repoUrl] = false;
     // If we're still viewing this project, re-render
     if (state.selectedProject && state.selectedProject.id === projectId) {
       render();
     }
   } else {
     console.error('Error fetching GitHub info:', result.error);
+    state.githubLoading[repoUrl] = false;
+    // Re-render to remove skeleton and show the fetch button again
+    if (state.selectedProject && state.selectedProject.id === projectId) {
+      render();
+    }
   }
 }
 

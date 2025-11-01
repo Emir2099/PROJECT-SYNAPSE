@@ -256,6 +256,28 @@
             height: 100%;
             color: var(--syn-gray);
         }
+
+        /* Card-scoped skeletons */
+        .gh-skeleton { display: grid; gap: 0.5rem; }
+        .skeleton-line {
+            height: 12px;
+            background: linear-gradient(90deg, #111 0%, #1a1a1a 50%, #111 100%);
+            background-size: 200% 100%;
+            border-radius: 6px;
+            animation: shimmer 1.4s infinite;
+        }
+        .skeleton-badge {
+            height: 34px;
+            background: linear-gradient(90deg, #111 0%, #1a1a1a 50%, #111 100%);
+            background-size: 200% 100%;
+            border-radius: 8px;
+            animation: shimmer 1.4s infinite;
+            margin-top: 0.25rem;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
         
         /* Modal */
         .modal-overlay {
