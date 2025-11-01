@@ -355,15 +355,22 @@ ipcMain.handle('fetch-github-info', async (event, repoUrl) => {
     const [, owner, repo] = match;
     const repoName = repo.replace('.git', '');
     
+    // Get GitHub token from settings
+    const settings = store.get('settings', {});
+    const headers = {};
+    if (settings.githubToken) {
+      headers['Authorization'] = `token ${settings.githubToken}`;
+    }
+    
     // Fetch repository info
-    const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}`);
+    const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}`, { headers });
     if (!repoResponse.ok) {
       throw new Error('Failed to fetch repository info');
     }
     const repoData = await repoResponse.json();
     
     // Fetch latest commits
-    const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/commits?per_page=1`);
+    const commitsResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/commits?per_page=1`, { headers });
     let lastCommit = null;
     if (commitsResponse.ok) {
       const commits = await commitsResponse.json();
@@ -377,7 +384,7 @@ ipcMain.handle('fetch-github-info', async (event, repoUrl) => {
     }
     
     // Fetch releases
-    const releasesResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/releases?per_page=5`);
+    const releasesResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/releases?per_page=5`, { headers });
     let releases = [];
     if (releasesResponse.ok) {
       const releasesData = await releasesResponse.json();
@@ -390,7 +397,7 @@ ipcMain.handle('fetch-github-info', async (event, repoUrl) => {
     }
     
     // Fetch pull requests
-    const prsResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/pulls?state=open`);
+    const prsResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/pulls?state=open`, { headers });
     let openPRs = 0;
     if (prsResponse.ok) {
       const prs = await prsResponse.json();
