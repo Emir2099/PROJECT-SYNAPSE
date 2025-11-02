@@ -158,7 +158,11 @@ autoUpdater.on('update-downloaded', (info) => {
 ipcMain.handle('check-for-updates', async () => {
   try {
     const result = await autoUpdater.checkForUpdates();
-    return { success: true, updateInfo: result.updateInfo };
+    if (result && result.updateInfo) {
+      return { success: true, updateInfo: result.updateInfo };
+    } else {
+      return { success: false, message: 'No updates available' };
+    }
   } catch (error) {
     console.error('Error checking for updates:', error);
     return { success: false, error: error.message };

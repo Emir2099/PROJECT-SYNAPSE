@@ -220,7 +220,7 @@ function renderSidebar() {
         <span class="sidebar-icon-text">Projects</span>
       </button>
       <button class="sidebar-icon ${isHelpActive ? 'active' : ''}" onclick="navigateTo('help')">
-        ${createIcon('help-circle', 'lucide-lg')}
+        ${createIcon('circle-help', 'lucide-lg')}
         <span class="sidebar-icon-text">Help</span>
       </button>
       <button class="sidebar-icon ${isSettingsActive ? 'active' : ''}" onclick="navigateTo('settings')">
@@ -1114,13 +1114,56 @@ async function manualCheckForUpdates() {
       // Update available notification will be shown by the event listener
       console.log('Update check completed:', result.updateInfo);
     } else {
-      alert('No updates available. You are on the latest version!');
+      // Show beautiful "up to date" notification
+      showUpToDateNotification();
     }
   } catch (error) {
     const existing = document.getElementById('checking-updates');
     if (existing) existing.remove();
-    alert('Error checking for updates: ' + error.message);
+    showErrorNotification('Error checking for updates: ' + error.message);
   }
+}
+
+function showUpToDateNotification() {
+  const notification = document.createElement('div');
+  notification.className = 'update-notification success-notification';
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      ${createIcon('check-circle', 'lucide-lg')}
+      <div>
+        <h3 style="margin: 0;">You're Up to Date!</h3>
+        <p class="text-gray" style="margin: 0; font-size: 0.875rem;">Running the latest version ${state.currentVersion}</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 4 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-out forwards';
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+}
+
+function showErrorNotification(message) {
+  const notification = document.createElement('div');
+  notification.className = 'update-notification error-notification';
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      ${createIcon('alert-circle', 'lucide-lg')}
+      <div>
+        <h3 style="margin: 0;">Update Check Failed</h3>
+        <p class="text-gray" style="margin: 0; font-size: 0.875rem;">${message}</p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease-out forwards';
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
 }
 
 function attachEventListeners() {
